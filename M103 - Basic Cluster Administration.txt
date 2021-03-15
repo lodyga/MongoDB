@@ -1,0 +1,49 @@
+# In order to complete this lab, we first must properly configure our mongod. Here is a command that fulfills the requirements of the lab:
+mongod --port 27000
+# After configuring mongod, we can connect to mongo by specifying a port:
+mongo --port 27000
+
+mongod -f mongod.conf
+mongod --config mongod.conf
+
+
+storage:
+  dbPath: "/data/db"
+net:
+  bindIp: localhost
+  port: "27000"
+security:
+  authorization: enabled
+
+storage:
+  dbPath: "/var/mongodb/db"
+net:
+  bindIp: localhost
+  port: 27000
+security:
+  authorization: enabled
+systemLog:
+  destination: file
+  path: /var/mongodb/logs/mongod.log
+  logAppend: true
+processManagement:
+  fork: true
+
+
+# You will need to create this user in order to validate your work.
+mongo admin --host localhost:27000 --eval '
+  db.createUser({
+    user: "m103-admin",
+    pwd: "m103-pass",
+    roles: [
+      {role: "root", db: "admin"}
+    ]
+  })
+'
+
+ls -l /data/db
+ls -l /data/db/diagnostic.data
+ls -l /data/db/journal
+ls /tmp/mongodb-27017.sock
+
+

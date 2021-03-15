@@ -1,0 +1,334 @@
+https://docs.mongodb.com/manual/reference/sql-comparison/
+
+match, project, group, sort, skip, limit
+
+find({predicate}, {projection}).sort("height", -1).skip(3).limit(2)
+
+SQL Terms, Functions, and Concepts
+MongoDB Aggregation Framework Stages and Operators
+SELECT	db.find()
+WHERE	{ Field: Value }
+COUNT	count()
+LIMIT, TOP	limit()
+ORDER BY	sort()
+
+SQL Terms, Functions, and Concepts
+MongoDB Aggregation Framework Stages, Operators, and Concepts
+SELECT	db.aggregate()
+WHERE	$match
+GROUP	$group
+COUNT	$count
+LIMIT	$limit
+ORDER BY	$sort
+JOIN	$lookup
+UNION ALL	$unionWith\
+
+SQL CRUD - Functions
+MongoDB CRUD - functions
+INSERT INTO	insertOne() / insertMany()
+SELECT	findOne() / find() / distinct()
+UPDATE	updateOne() / updateMany() / replaceOne()
+DELETE	deleteOne() / deleteMany()
+CREATE INDEX	createIndex()
+DROP INDEX	dropIndex() / dropIndexes()
+DROP TABLE	drop()
+ALTER	updateMany() with $set or with $unset for adding or removing fields within a collection
+
+MongoDB as a Data Platform
+Atlas - cloud service, MongoDB as a service, database
+
+
+
+mongo "mongodb+srv://sandbox.4wx90.mongodb.net/<dbname>" --username m001-student --password m001-mongodb-basics
+
+mongodump --uri "mongodb+srv://m001-student:m001-mongodb-basics@sandbox.4wx90.mongodb.net/sample_supplies"
+
+mongo "mongodb+srv://m001-student:m001-mongodb-basics@sandbox.4wx90.mongodb.net/admin"
+
+
+mongodump --uri "mongodb+srv://<your username>:<your password>@<your cluster>.mongodb.net/sample_supplies"
+mongoexport --uri="mongodb+srv://<your username>:<your password>@<your cluster>.mongodb.net/sample_supplies" --collection=sales --out=sales.json
+mongorestore --uri "mongodb+srv://<your username>:<your password>@<your cluster>.mongodb.net/sample_supplies"  --drop dump
+mongoimport --uri="mongodb+srv://<your username>:<your password>@<your cluster>.mongodb.net/sample_supplies" --drop sales.json
+exit
+
+{"state": "NY", "city": "ALBANY"}
+
+show dbs
+use sample_training
+show collections
+db.zips.find({"state": "NY"})
+it
+db.zips.find({"state": "NY"}).count()
+db.zips.find({"state": "NY", "city": "ALBANY"})
+db.zips.find({"state": "NY", "city": "ALBANY"}).pretty()
+
+db.inspections.findOne()
+db.inspections.insert()
+
+db.inspections.insert([{ "_id": 1, "test": 1 },{ "_id": 1, "test": 2 },
+                       { "_id": 3, "test": 3 }],{ "ordered": false })
+					   
+db.inspections.find({ "_id": 1 })
+
+db.zips.find().pretty()
+db.zips.find({ "zip": "12534" }).pretty()
+db.zips.updateMany({ "city": "HUDSON" }, { "$inc": { "pop": 10 } })
+db.zips.updateOne({ "zip": "12534" }, { "$set": { "pop": 17630 } })
+db.grades.updateOne({ "student_id": 250, "class_id": 339 },
+                    { "$push": { "scores": { "type": "extra credit",
+                                             "score": 100 }
+                                }
+                     })
+db.zips.updateOne({ "student_id": 250, "class_id": 339 }, { "$pop": { "scores": 1 } })
+db.inspections.deleteMany({ "test": 1 })
+db.inspection.drop()
+
+db.trips.find({tripduration: {$lte: 70}, usertype: {$ne: 'Subscriber'}})
+db.trips.find({$and: [{tripduration: {$lte: 70}}, {usertype: {$ne: 'Subscriber'}}]})
+
+Name	Description
+$eq 	Matches values that are equal to a specified value.
+$gt 	Matches values that are greater than a specified value.
+$gte	Matches values that are greater than or equal to a specified value.
+$in 	Matches any of the values specified in an array.
+$lt	    Matches values that are less than a specified value.
+$lte	Matches values that are less than or equal to a specified value.
+$ne	    Matches all values that are not equal to a specified value.
+$nin	Matches none of the values specified in an array.
+
+{$nor: [{result: 'No Violation Issued'}, {result: 'Violation Issued'}, {result: 'Pass'}, {result: 'Fail'}]}
+{$or: [{src_airport: 'KZN'}, {dst_airport: 'KZN'}]}
+{$or: [{airplane: 'CR2'}, {airplane: 'A81'}]}
+db.routes.find({$and: [{$or: [{src_airport: 'KZN'}, {dst_airport: 'KZN'}]}, {$or: [{airplane: 'CR2'}, {airplane: 'A81'}]}]}
+db.companies.find({$and: [{$or: [{'founded_year': 2004}, {'founded_month': 10}]}, {$or: [{"category_code": 'web'}, {'category_code': 'social'}]}]}).count()
+
+{ _id: { $in: [ ObjectId("573a1390f29313caabcd587d") ] } }
+
+db.trips.find({$expr: {$eq: ['$end station name', '$start station name']}}).count()
+db.trips.find({$expr: {$and: [
+                        {$gt: ['$tripduration', 1200 ]},
+                        {$eq: ["$end station id", "$start station id"]}
+                       ]
+                       }}).count()
+
+db.trips.find({$expr: {$and: [{tripduration: {$ge: 1200}, {$eq: ["$end station id", "$start station id"]}]}}).count()
+db.companies.find({$expr: {$eq: ['$permalink', '$twitter_username']}}).count()
+
+{amenities: {$size: 10, $all: ['Wifi', 'Shampoo']}}
+db.listingsAndReviews.find({amenities: {$all: ['Wifi', 'Shampoo']}}).count()
+db.listingsAndReviews.find({accommodates: {$gt: 6}, reviews: {$size: 50}}).count()
+db.listingsAndReviews.find({property_type: 'House', amenities: 'Changing table'}).count()
+db.listingsAndReviews.find({$and: [{property_type: 'House'}, {amenities: 'Changing table'}]}).count()
+db.listingsAndReviews.find(
+  { "amenities": "Free parking on premises", "amenities": "Wifi",
+    "amenities": "Air conditioning", "bedrooms": { "$gte": 2 } } ).pretty()
+This query will return all documents that contain "Air conditioning" as one of the amenities. This is because a query should be a valid JSON document. A valid JSON document cannot have multiple identical keys so MongoDB will go through each query requirement overwriting requirements with identical field names until it reaches the last mention of a field in this query.    
+
+db.listingsAndReviews.find({ "amenities":
+        { "$size": 20, "$all": [ "Internet", "Wifi",  "Kitchen", "Heating",
+                                 "Family/kid friendly", "Washer", "Dryer",
+                                 "Essentials", "Shampoo", "Hangers",
+                                 "Hair dryer", "Iron",
+                                 "Laptop friendly workspace" ] } },
+                            {"price": 1, "address": 1}).pretty()
+
+db.listingsAndReviews.find({amenities: 'Wifi'}, {price: 1, _id: 0})
+db.grades.find(
+    {class_id: 431}, 
+    {scores:{'$elemMatch': {score: {$gt: 85}}}}
+    ).count()
+db.grades.find(
+    {scores:{'$elemMatch': {score: {$gt: 85}}}}, 
+    {class_id: 431}
+    ).count()
+
+db.grades.find({class_id: 431}).count()
+db.grades.find({scores: {$elemMatch: {score: {$gt: 85 }}}}).count()
+db.companies.find({offices: {$elemMatch: {city: 'Seattle'}}}).count()
+db.companies.find({funding_rounds: {$size: 8}},
+                  {name: 1, _id: 0})
+
+db.trips.findOne({'start station location.type': 'Point'})
+db.companies.find({ "relationships.0.person.last_name": "Zuckerberg" }, { "name": 1 }).pretty()
+db.companies.find({ "relationships.0.person.first_name": "Mark" , 'relationships.0.title': {$regex:'CEO'}}, { "name": 1 }).pretty()
+db.companies.find({ "relationships.0.person.first_name": "Mark" , 'relationships.0.is_past': true}, { "name": 1 }).count()
+db.companies.find({relationships: {$elemMatch: {'is_past': true, 'person.first_name': 'Mark'}}}, {name: 1}).count()
+db.trips.find({'start station location.coordinates.0': {$lt: 75}}, {'tripduration': 1}).count()
+
+db.listingsAndReviews.aggregate([{$match: {amenities: 'Wifi'}}, {$project: {price: 1, address: 1, _id:0}}]).pretty()
+db.listingsAndReviews.aggregate([{$project: {address: 1, _id: 0}}, {$group: {_id: '$address.country'}}])
+db.listingsAndReviews.aggregate([{$project: {address: 1, _id: 0}}, {$group: {_id: '$address.country', count: {'$sum': 1}}}])
+db.listingsAndReviews.aggregate([{$project: {room_type: 1, _id: 0}}, {$group: {_id: '$room_type', count: {'$sum': 1}}}])
+
+db.zips.find().sort({pop: 1}).limit(1).pretty()
+db.zips.find().sort({ "pop": 1, "city": -1 }).pretty()
+db.companies.find({ "founded_year": { "$ne": null }},
+                  { "name": 1, "founded_year": 1 }
+                 ).sort({ "founded_year": 1 }).limit(5)
+db.trips.find({'birth year': {$ne: ''}}, {'birth year': 1, _id: 0}).sort({'birth year': -1}).limit(5)
+
+db.trips.createIndex({ "birth year": 1 })
+db.trips.createIndex({ "start station id": 476, "birth year": 1 })
+
+[{$match: {
+  amenities: 'Wifi'
+}}, {$project: {
+  price: 1,
+  address: 1,
+  _id: 0
+}}, {$group: {
+  _id: '$address.country',
+  count: {$sum: 1},
+  total_price: {$sum: '$price'}
+}}, {$count: 'num_countries'}]
+
+
+
+
+chmod 400 /var/mongodb/pki/m103-keyfile
+sudo chown myuser:myuser /var/mongodb_directory
+mkdir -p /db/mongodb_data/
+rm -rf <directory name>
+ls -la
+cat <name of the file>
+kill 13029 killall mongod
+
+use admin
+db.shutdownServer()
+exit
+
+mongod --dbpath <directory path>
+mongod --port <port number>
+mongod --auth
+mongod --bind_ip localhost,123.123.123.123
+
+mongod --port 27000
+mongod --auth
+mongod --dbpath /data/db --logpath /data/log/mongod.log --auth --port 27017
+
+storage:
+  dbPath: /data/db
+net:
+  bindIp: localhost
+  port: 27017
+security:
+  authorization: enabled
+	
+cd /root/workspace/
+mongod --config mongod.conf
+mongod -f mongod.conf
+
+mongo admin --host localhost:27017 --eval '
+  db.createUser({
+    user: "m103-admin",
+    pwd: "m103-pass",
+    roles: [
+      {role: "root", db: "admin"}
+    ]
+  })
+'
+
+storage:
+  dbPath: "/data/db"
+systemLog:
+  path: "/data/log/mongod.log"
+  destination: "file"
+replication:
+  replSetName: M103
+net:
+  bindIp : "127.0.0.1,192.168.103.100"
+tls:
+  mode: "requireTLS"
+  certificateKeyFile: "/etc/tls/tls.pem"
+  CAFile: "/etc/tls/TLSCA.pem"
+security:
+  keyFile: "/data/keyfile"
+processManagement:
+  fork: true
+  
+ls -l /data/db
+ls -l /data/db/diagnostic.data
+ls -l /data/db/journal
+ls /tmp/mongodb-27017.sock
+
+mkdir -p /var/mongodb/db
+
+
+
+
+db.createUser()
+db.dropUser()
+db.<collection>.renameCollection()
+db.<collection>.createIndex()
+db.<collection>.drop()
+db.dropDatabase()
+db.createCollection()
+db.serverStatus()
+
+db.adminCommand({'getLog': 'global'})
+
+storage:
+  dbPath: /var/mongodb/db
+net:
+  bindIp: localhost
+  port: 27000
+security:
+  authorization: enabled
+systemLog:
+  destination: file
+  path: /var/mongodb/logs/mongod.log
+  logAppend: true
+processManagement:
+  fork: true
+
+use admin
+db.stats()
+use admin
+db.createUser({
+  user: "root",
+  pwd: "root123",
+  roles : [ "root" ]
+})
+
+db.createUser({user: "root", pwd: "root123", roles : [ "root" ]})
+db.createUser({user: "m103-application-user", pwd: "m103-application-pass", roles : [ "readWrite" ]})
+
+db.createUser(
+  { user: "dba",
+    pwd: "c1lynd3rs",
+    roles: [ { db: "admin", role: "dbAdmin" } ]
+  }
+)  
+
+db.createUser({ user: "dba", pwd: "c1lynd3rs", roles: [ { db: "admin", role: "dbAdmin" } ]}) 
+
+
+find /usr/bin/ -name "mongo*"
+
+mkdir -p ~/first_mongod
+mongod --port 30000 --dbpath ~/first_mongod --logpath ~/first_mongod/mongodb.log --fork
+mongostat --port 30000
+mongodump --help
+
+pip --version
+pip show pymongo
+
+from pymongo import MongoClient
+uri = "mongodb+srv://m220student:m220password@sandbox.4wx90.mongodb.net/admin"
+
+import pymongo
+client = pymongo.MongoClient(
+   "mongodb+srv://<username>:<password>@<cluster-url>/test?retryWrites=true&w=majority")
+db = client.test
+
+
+
+mongo "mongodb+srv://sandbox.4wx90.mongodb.net/<dbname>" --username m001-student --password m001-mongodb-basics
+mongodb+srv://m001-student:m001-mongodb-basics@sandbox.4wx90.mongodb.net/admin
+mongodb+srv://m220student:m220password@sandbox.4wx90.mongodb.net/admin
+uri = "mongodb+srv://m220student:m220password@sandbox.4wx90.mongodb.net/test"
+mongo "mongodb+srv://m001-student:m001-mongodb-basics@sandbox.4wx90.mongodb.net/admin"
+use sample_training
+use sample_airbnb
+
