@@ -41,9 +41,38 @@ mongo admin --host localhost:27000 --eval '
   })
 '
 
+
+mongo admin --host localhost:27000 -u m103-admin -p m103-pass
+db.createUser({user: "m103-application-user",pwd: "m103-application-pass",roles: [{role: "readWrite", db: "applicationData"}]})
+
+db.createUser({
+> user: "m103-application-user",
+> pwd: "m103-application-pass",
+> roles: [
+> {role: "readWrite", db: "applicationData"}
+> ]
+})
+
+mongo admin --host localhost:27000 -u m103-admin -p m103-pass --eval '
+>   db.createUser({
+>     user: "m103-application-user",
+>     pwd: "m103-application-pass",
+>     roles: [
+>       {role: "readWrite", db: "applicationData"}
+>     ]
+>   })
+> '
+
+
 ls -l /data/db
 ls -l /data/db/diagnostic.data
 ls -l /data/db/journal
 ls /tmp/mongodb-27017.sock
+
+# Import
+mongoimport --port 27000 /datset/products.json
+mongoimport --host localhost:27000 -u m103-application-user -p m103-application-pass -d applicationData /dataset/products.json
+mongoimport --host localhost:27000 --authenticationDatabase=admin -u m103-application-user -p m103-application-pass -d applicationData -c products /dataset/products.json
+
 
 
