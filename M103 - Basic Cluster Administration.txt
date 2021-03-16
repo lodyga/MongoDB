@@ -1,4 +1,3 @@
-# In order to complete this lab, we first must properly configure our mongod. Here is a command that fulfills the requirements of the lab:
 mongod --port 27000
 # After configuring mongod, we can connect to mongo by specifying a port:
 mongo --port 27000
@@ -75,4 +74,76 @@ mongoimport --host localhost:27000 -u m103-application-user -p m103-application-
 mongoimport --host localhost:27000 --authenticationDatabase=admin -u m103-application-user -p m103-application-pass -d applicationData -c products /dataset/products.json
 
 
+# Replica Set
+
+storage:
+  dbPath: /var/mongodb/db/1
+net:
+  bindIp: localhost
+  port: 27001
+security:
+  authorization: enabled
+  keyFile: /var/mongodb/pki/m103-keyfile
+systemLog:
+  destination: file
+  path: /var/mongodb/logs/mongod1.log
+  logAppend: true
+processManagement:
+  fork: true
+replication:
+  replSetName: m103-repl
+
+mongod -f mongod_1.conf
+mongo --port 27001
+rs.initiate()
+
+mongo --port 27001 -eval 'rs.initiate()'
+
+use admin
+
+mongo admin --port 27001 -eval 'db.createUser({
+  user: "m103-admin",
+  pwd: "m103-pass",
+  roles: [
+    {role: "root", db: "admin"}
+  ]
+})'
+
+exit
+mongo --host "m103-repl/localhost:27001" -u "m103-admin" -p "m103-pass" --authenticationDatabase "admin"
+rs.status()
+rs.add("localhost:27002")
+rs.isMaster()
+rs.stepDown()
+
+# Connect to the mongod process where you ran rs.initiate() and add the other two nodes:
+mongo admin --host m103-repl/localhost:27001 \
+            --username m103-admin --password m103-pass \
+            --eval 'rs.add("localhost:27002")
+                    rs.add("localhost:27003")'
+
+# Now, running rs.status() should give us a members list with three healthy nodes:
+mongo admin --host m103-repl/localhost:27001 \
+            --username m103-admin --password m103-pass \
+            --eval 'rs.status()'
+
+
+
+# Replication Commands
+rs.status()
+rs.isMaster()
+db.serverStatus()['repl']
+rs.printReplicationInfo()
+
+
+
+# Reconfigure a Replica Set
+mongo --host "m103-repl/localhost:27004" -u "m103-admin" -p "m103-pass" --authenticationDatabase=admin
+rs.conf()
+cfg = rs.conf()
+cfg.members[3].votes = 0
+cfg.members[3].hidden = true
+cfg.members[3].priority = 0
+rs.reconfig(cfg)
+rs.conf()
 
