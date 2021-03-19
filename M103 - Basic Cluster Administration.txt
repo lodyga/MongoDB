@@ -157,6 +157,20 @@ sh.addShard("m103-repl/shard1/localhost:27001")
 
 
 
+# Shard a Collection
+mongoimport --host localhost:26000 -u "m103-admin" -p "m103-pass" --authenticationDatabase "admin" -d m103 -c products /dataset/products.json
+mongo --port 26000 -u "m103-admin" -p "m103-pass" --authenticationDatabase=admin
+sh.status()
+use m103
+show collections
+sh.enableSharding("m103")
+db.products.createIndex( { "sku" : 1 } )
+sh.shardCollection("m103.products", {"sku" : 1 } )
+
+
+
+
+
 
 
 
