@@ -1,0 +1,42 @@
+mongo "mongodb://cluster0-shard-00-00-jxeqq.mongodb.net:27017,cluster0-shard-00-01-jxeqq.mongodb.net:27017,cluster0-shard-00-02-jxeqq.mongodb.net:27017/aggregations?replicaSet=Cluster0-shard-0" --authenticationDatabase admin --ssl -u m121 -p aggregations --norc
+
+$match, $project: aggregation operators
+$lt: query operators
+expression - function
+
+Pipelines are always an array of one or more stages.
+Stages are composed of one or more aggregation operators or expressions.
+Expressions may "take a single argument or an array of arguments.": {$gte: 7}
+
+
+
+# $"match: Filtering documents": {$gte: 7}
+db.solarSystem.aggregate([{ $match: {type: {$ne: 'Star'}}}]).pretty()
+db.solarSystem.find({type: {$ne: 'Star'}}).pretty()
+
+var pipeline = [ { $match: { ... } } ]
+pipeline = [
+    {
+        $match: {
+            {"imdb.rating": {$gte: 7}},
+            {genres: {$nin: ['Crime', 'Horror']}},
+            {rated: {$in: ['PG', 'G']}},
+            {languages: {$all: ['English', 'Japanese']}}
+        }
+    }
+]
+
+db.movies.aggregate(pipeline).itcount()
+
+# validateLab1.js musi być w katalogu m121 gdzie odpalone jest mongo
+load('validateLab1.js')
+validateLab1(pipeline)
+
+
+$project
+db.solarSystem.aggregate([{$project: {_id: 0, name: 1, 'gravity.value': 1}}])
+db.solarSystem.aggregate([{$project: {_id: 0, name: 1, gravity: '$gravity.value'}}])
+db.solarSystem.aggregate([{$project: {_id: 0, name: 1, weight: {$multiply: [{$divide: ['$gravity.value', 9.8]}, 70]}}}])
+
+
+
