@@ -1,5 +1,7 @@
 mongo "mongodb://cluster0-shard-00-00-jxeqq.mongodb.net:27017,cluster0-shard-00-01-jxeqq.mongodb.net:27017,cluster0-shard-00-02-jxeqq.mongodb.net:27017/aggregations?replicaSet=Cluster0-shard-0" --authenticationDatabase admin --ssl -u m121 -p aggregations --norc
 
+db.movies.aggregate([{$sample: {size: 5}}]).pretty()
+
 $match, $project: aggregation operators
 $lt: query operators
 expression - function
@@ -10,25 +12,33 @@ Expressions may "take a single argument or an array of arguments.": {$gte: 7}
 
 
 
-# $"match: Filtering documents": {$gte: 7}
 db.solarSystem.aggregate([{ $match: {type: {$ne: 'Star'}}}]).pretty()
 db.solarSystem.find({type: {$ne: 'Star'}}).pretty()
 
 var pipeline = [ { $match: { ... } } ]
-pipeline = [
+
+
+
+var pipeline = [
     {
         $match: {
-            {"imdb.rating": {$gte: 7}},
-            {genres: {$nin: ['Crime', 'Horror']}},
-            {rated: {$in: ['PG', 'G']}},
-            {languages: {$all: ['English', 'Japanese']}}
+            "imdb.rating": {$gte: 7},
+            genres: {$nin: ['Crime', 'Horror']},
+            rated: {$in: ['PG', 'G']},
+            languages: {$all: [['English', 'Japanese']}]
+        }
+    }, {
+        $project: {
+          _id: 0,
+          title: 1,
+          rated: 1
         }
     }
 ]
 
 db.movies.aggregate(pipeline).itcount()
 
-# validateLab1.js musi być w katalogu m121 gdzie odpalone jest mongo
+// validateLab1.js musi być w katalogu m121 gdzie odpalone jest mongo
 load('validateLab1.js')
 validateLab1(pipeline)
 
@@ -36,7 +46,576 @@ validateLab1(pipeline)
 $project
 db.solarSystem.aggregate([{$project: {_id: 0, name: 1, 'gravity.value': 1}}])
 db.solarSystem.aggregate([{$project: {_id: 0, name: 1, gravity: '$gravity.value'}}])
-db.solarSystem.aggregate([{$project: {_id: 0, name: 1, weight: {$multiply: [{$divide: ['$gravity.value', 9.8]}, 70]}}}])
+db.solarSystem.aggregate([
+  {
+    $project: {
+      _id: 0,
+      name: 1,
+      myweight: {
+        $multiply: [
+          {
+            $divide: [
+              "$gravity.value",
+              9.8
+            ]
+          },
+          70
+        ]
+      }
+    }
+  }
+])
+
+load('./validateLab2.js')
+validateLab2(pipeline)
+
+var pipeline = [
+    {
+        $match: {
+            title: {$type: 'string'}
+        }
+    }, {
+        $project: {
+            _id: 0,
+            count_of: {$size: {$split: ['$title', ' ']}}
+        }
+    }, {
+        $match: {
+            count_of:  1
+        }
+    }
+]
+
+db.movies.findOne({title: "Life Is Beautiful"}, { _id: 0, cast: 1, writers: 1})
+
+
+writers: {
+  $map: {
+    input: "$writers",
+    as: "writer",
+    in: {
+      $arrayElemAt: [
+        {
+          $split: [ "$$writer", " (" ]
+        },
+        0
+      ]
+    }
+  }
+}
+
+
+var pipeline = [
+  {
+    // With our first $match stage, we filter out documents that are not an array or have an empty array for the 
+    // fields we are interested in.
+    $match: {
+      cast: {$elemMatch: {$exists: true}},
+      directors: {$elemMatch: {$exists: true}},
+      writers: {$elemMatch: {$exists: true}}
+    }
+  }, {
+    $project: {
+      _id: 0,
+      cast: 1,
+      directors: 1,
+      writers: {
+        $map: {
+          input: "$writers",
+          in: {
+            $arrayElemAt: [
+              {
+                $split: [ "$$this", " (" ]
+              },
+              0
+            ]
+          }
+        }
+      }
+    }
+  }, {
+    $project: {
+      labor_of_love: {
+        $setIntersection: ["$cast", "$directors", "$writers"]
+      }
+    }
+  }, {
+    $match: {
+      labor_of_love: {$type: 'string'}
+    }
+  }, {
+    $count: 'number'
+  }
+]
+
+
+var pipeline = [
+  {
+    $match: {
+      cast: { $elemMatch: { $exists: true } },
+      directors: { $elemMatch: { $exists: true } },
+      writers: { $elemMatch: { $exists: true } }
+    }
+  },
+  {
+    $project: {
+      _id: 0,
+      cast: 1,
+      directors: 1,
+      writers: {
+        $map: {
+          input: "$writers",
+          as: "writer",
+          in: {
+            $arrayElemAt: [
+              {
+                $split: ["$$writer", " ("]
+              },
+              0
+            ]
+          }
+        }
+      }
+    }
+  },
+  {
+    $project: {
+      labor_of_love: {
+        $size: {$setIntersection: ["$cast", "$directors", "$writers"]}
+      }
+    }
+  }, {
+    $match: {
+      labor_of_love: {$gt: 0}
+    }
+  }, {
+    $count: 'number'
+  }
+]
+
+
+var pipeline = [
+  {
+    $match: {
+      cast: { $elemMatch: { $exists: true } },
+      directors: { $elemMatch: { $exists: true } },
+      writers: { $elemMatch: { $exists: true } }
+    }
+  },
+  {
+    $project: {
+      _id: 0,
+      cast: 1,
+      directors: 1,
+      writers: {
+        $map: {
+          input: "$writers",
+          as: "writer",
+          in: {
+            $arrayElemAt: [
+              {
+                $split: ["$$writer", " ("]
+              },
+              0
+            ]
+          }
+        }
+      }
+    }
+  },
+  {
+    $project: {
+      labor_of_love: {
+        $gt: [
+          { $size: { $setIntersection: ["$cast", "$directors", "$writers"] } },
+          0
+        ]
+      }
+    }
+  },
+  {
+    $match: { labor_of_love: true }
+  },
+  {
+    $count: "labors of love"
+  }
+]
+
+
+
+db.movies.aggregate(pipeline).pretty()
+
+
+
+
+// $addFields and how it is similar to $project
+db.solarSystem.aggregate([
+  { 
+    $project: {
+      _id: 0,
+      name: 1,
+      gravity: "$gravity.value"}
+  }
+]).
+pretty()
+
+db.solarSystem.aggregate([
+  { 
+    $addFields: {
+      gravity2: "$gravity.value"}
+  }
+]).pretty()
+
+
+
+// geoNear Stage
+db.nycFacilities.aggregate([{
+  $geoNear: {
+    near: {
+      type: "Point",
+      coordinates: [-73.99, 40.76]
+    },
+    distanceField: "distance_txt",
+    query: {type: "Hospital"}
+  }
+}, {
+  $limit: 5
+}
+]).pretty()
+
+
+
+
+// $sample
+db.nycFacilities.aggregate([{
+  $sample: {size: 200}
+}]).pretty()
+
+
+db.movies.aggregate([{
+  $sample: {size: 5}
+}]).pretty()
+
+
+db.icecream_data.aggregate([{
+  $sample: {size: 5}
+}]).pretty()
+
+
+// Lab: Using Cursor-like Stages
+
+        
+var favorites =  [
+        "Sandra Bullock",
+        "Tom Hanks",
+        "Julia Roberts",
+        "Kevin Spacey",
+        "George Clooney"]
+
+db.movies.aggregate(pipeline).pretty()
+
+var pipeline = [
+  {
+    $match: {
+      countries: {$in: ["USA"]},
+      "tomatoes.viewer.rating": {$gte: 3},
+      cast: {$in: [
+        "Sandra Bullock",
+        "Tom Hanks",
+        "Julia Roberts",
+        "Kevin Spacey",
+        "George Clooney"]}
+    }
+  }, {
+    $project: {
+      _id: 0,
+      title: 1,
+      "tomatoes.viewer.rating": 1,
+      num_favs: {$size: {$setIntersection: [favorites, "$cast"]}}
+
+    }
+  }, {
+    $sort: {num_favs: -1, "tomatoes.viewer.rating": -1, title: -1}
+  }, {
+    $skip: 24
+  }, {
+    $limit: 1
+  }
+]
+
+db.movies.aggregate(pipeline).pretty()
+
+max_x = 1521105;
+min_x = 5;
+a = 1;
+b = 10;
+x = imdb.votes
+
+var pipeline = [
+  {
+    $match: {
+      "imdb.votes": {$gte: 1}
+    }
+  }, {
+    $project: {
+      _id: 0,
+      votes: "$imdb.votes"
+    } 
+  }, {
+    $sort: {votes: -1}
+  }, {
+    $limit: 1
+  }
+]
+
+var pipeline = [
+  {
+    $match: {
+      languages: {$in: ["English"]},
+      "imdb.rating": {$gte: 1},
+      "imdb.votes": {$gte: 1},
+      year: {$gte: 1990}
+    }
+  }, {
+    $project: {
+      _id: 0,
+      title: 1,
+      scalled_votes: {
+        $add: [
+          a,
+          {
+            $divide: [
+            {
+              $multiply: [
+                {
+                  $subtract:["$imdb.votes", min_x]
+                }, {
+                  $subtract:[b, a]
+                }
+              ]
+            }, {
+              $subtract:[max_x, min_x]
+            }
+          ]
+          }
+        ]
+      }, 
+      normalized_rating: {
+        $avg: ["$scalled_votes", "$imdb.rating"]  
+      }
+    }
+  }, {
+    $sort: {
+      "normalized_rating": -1
+    }
+  }, {
+    $limit: 10
+  }
+]
+
+db.movies.aggregate(pipeline).pretty()
+
+
+
+
+// Accumulator Stages with $project
+var pipeline = [
+  {
+    $project: {
+      _id: 0,
+      year: 1,
+      avg_year: {$avg: "$year"}
+    }
+  }
+]
+
+db.icecream_data.findOne()
+
+var pipeline = [
+  {
+    $project: {
+      _id: 0,
+      max_high: {
+        $reduce: {
+          input: "$trends",
+          initialValue: -Infinity,
+          in: {
+            $cond: [
+              { $gt: [ "$$this.avg_high_tmp", "$$value"]},
+              "$$this.avg_high_tmp",
+              "$$value"
+            ]
+          }
+        }
+      }
+    }
+  }
+]
+
+db.icecream_data.aggregate(pipeline).pretty()
+
+
+db.icecream_data.aggregate([
+  {
+    $project: {
+      _id: 0,
+      max_high: { $max: "$trends.avg_high_tmp"},
+      average_cpi: { $avg: "$trends.icecream_cpi"},
+      cpu_deviation: { $stdDevPop: "$trends.icecream_cpi"},
+      "yearly_sales (millions)": {$sum: "$trends.icecream_sales_in_millions"}
+    }
+  }
+])
+
+
+
+// Lab - $group and Accumulators
+
+db.movies.aggregate([
+  {
+    $match: {
+      awards: {$exists: true},
+      "imdb.rating": {$gt: 0}
+    }
+  }, { 
+    $addFields: {
+      oscar_q: {
+       $arrayElemAt: [
+         {
+          $split: [ "$awards", " "]
+          },
+         2
+       ]
+      } 
+    }
+  }, {
+    $match: {
+      oscar_q: { $exists: true},
+      oscar_q: { $in: [ "Oscar.", "Oscars."]}
+    }
+  }, {
+    $addFields: {
+      oscars_count: {
+        $arrayElemAt: [
+          {$split: [ "$awards", " "]},
+          1
+        ]
+      }
+    }
+  }, {
+    $group: {
+      _id: null,
+      hr: {$max: "$imdb.rating"},
+      lr: {$min: "$imdb.rating"},
+      avg: {$avg: "$imdb.rating"},
+      deviation: {$stdDevSamp: "$imdb.rating"},
+      deviation_pop: {$stdDevPop: "$imdb.rating"}
+    }
+  }
+]).pretty()
+
+
+db.movies.aggregate([
+  {
+    $match: {
+      awards: /Won \d{1,2} Oscars?/
+    }
+  },
+  {
+    $group: {
+      _id: null,
+      highest_rating: { $max: "$imdb.rating" },
+      lowest_rating: { $min: "$imdb.rating" },
+      average_rating: { $avg: "$imdb.rating" },
+      deviation: { $stdDevSamp: "$imdb.rating" }
+    }
+  }
+])
+
+
+
+
+
+// The $unwind Stage
+db.movies.aggregate([
+  {
+    "$match": {
+      "imdb.rating": { "$gt": 0 },
+      "year": { "$gte": 2010, "$lte": 2015 },
+      "runtime": { "$gte": 90 }
+    }
+  },
+  {
+    "$unwind": "$genres"
+  },
+  {
+    "$group": {
+      "_id": {
+        "year": "$year",
+        "genre": "$genres"
+      },
+      "average_rating": { "$avg": "$imdb.rating" }
+    }
+  },
+  {
+    "$sort": { "_id.year": -1, "average_rating": -1 }
+  },
+  {
+    "$group": {
+      "_id": "$_id.year",
+      "genre": { "$first": "$_id.genre" },
+      "average_rating": { "$first": "$average_rating" }
+    }
+  },
+  {
+    "$sort": { "_id": -1 }
+  }
+])
+
+
+db.movies.aggregate([
+  {
+    $match: {
+      languages: {
+        $in: ["English"]
+      }
+    }
+  }, {
+    $project: {
+      _id: 0,
+      cast: 1,
+      "imdb.rating": 1
+    }
+  }, {
+    $unwind: "$cast"
+  }, {
+    $group: {
+      _id: "$cast",
+      movie_count: { $sum: 1},
+      average_rating: {
+        $avg: "$imdb.rating"
+      }
+    }
+  }, {
+    $sort: { movie_count: -1}
+  }, {
+    $limit: 1
+  }, {
+    $project: {    
+      movie_count: 1,
+      average_rating: {
+        $trunc: [ "$average_rating", 1]
+      }
+    }
+  }
+]).pretty()
+
+
+
+
+
+
+
 
 
 

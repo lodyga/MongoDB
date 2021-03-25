@@ -1,6 +1,6 @@
 https://docs.mongodb.com/manual/reference/sql-comparison/
 
-match, project, group, sort, skip, limit
+match, project, group, sort, skip, limit, count
 
 find({predicate}, {projection}).sort("height", -1).skip(3).limit(2)
 
