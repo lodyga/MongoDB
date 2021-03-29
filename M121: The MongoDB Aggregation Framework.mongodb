@@ -275,7 +275,7 @@ db.nycFacilities.aggregate([{
       type: "Point",
       coordinates: [-73.99, 40.76]
     },
-    distanceField: "distance_txt",
+    distanceField: "distanceFromMongoDB",
     query: {type: "Hospital"}
   }
 }, {
@@ -298,6 +298,10 @@ db.movies.aggregate([{
 
 
 db.icecream_data.aggregate([{
+  $sample: {size: 5}
+}]).pretty()
+
+db.air_airlines.aggregate([{
   $sample: {size: 5}
 }]).pretty()
 
@@ -607,6 +611,1136 @@ db.movies.aggregate([
         $trunc: [ "$average_rating", 1]
       }
     }
+  }
+]).pretty()
+
+
+
+
+// The $lookup Stage
+
+// familiarizing with the air_alliances schema
+db.air_alliances.findOne()
+
+// familiarizing with the air_airlines schema
+db.air_airlines.findOne()
+
+// performing a lookup, joining air_alliances with air_airlines and replacing
+// the current airlines information with the new values
+db.air_alliances.aggregate([
+  {
+    "$lookup": {
+      "from": "air_airlines",
+      "localField": "airlines",
+      "foreignField": "name",
+      "as": "airlines"
+    }
+  }
+]).pretty()
+
+db.air_alliances.aggregate([{
+  $sample: {size: 3}
+}]).pretty()
+
+db.air_routes.aggregate([{
+  $sample: {size: 3}
+}]).pretty()
+
+
+// to jest źle, bo odwrotnie połączone
+db.air_alliances.aggregate([
+  {
+    $lookup: {
+      from: "air_routes",
+      localField: "airlines",
+      foreignField: "airline.name",
+      as: "airlines"
+    }
+  }, {
+    $project: {
+      _id: 0,
+      name: 1,
+      plane_name: {$arrayElemAt: [ "$airlines.airplane", -1]}
+    }
+  }, {
+    $match: {
+      
+    }
+  }
+]).pretty()
+
+
+
+db.air_routes.aggregate([
+  {
+    $match: {
+      airplane: /747|380/
+    }
+  }, {
+    $project: {
+      _id: 0,
+      airplane: 1,
+      name: "$airline.name"
+    }
+  }, {
+    $lookup: {
+      from: "air_alliances",
+      localField: "name",
+      foreignField: "airlines",
+      as: "all_name"
+    }
+  }, {
+    $match: {
+      all_name: {$elemMatch: {$exists: true}}
+    }
+  }, {
+    $project: {
+      airplane: 1,
+      all_name: {$arrayElemAt: ["$all_name.name", 0]}
+    }
+  }, {
+    $group: {
+      _id: "$all_name",
+      routes_count: {$sum: 1}
+    }
+  }
+]).pretty()
+
+
+
+db.air_routes.aggregate([
+  {
+    $match: {
+      airplane: /747|380/
+    }
+  },
+  {
+    $lookup: {
+      from: "air_alliances",
+      foreignField: "airlines",
+      localField: "airline.name",
+      as: "alliance"
+    }
+  },
+  {
+    $unwind: "$alliance"
+  },
+  {
+    $group: {
+      _id: "$alliance.name",
+      count: { $sum: 1 }
+    }
+  },
+  {
+    $sort: { count: -1 }
+  }
+]).pretty()
+
+
+
+// $graphLookup, parent reference
+db.parent_reference.find({reports_to: 1})
+
+db.parent_reference.aggregate([
+  {
+    $match: {
+      name: "Eliot"
+    }
+  }, {
+    $graphLookup: {
+      from: 'parent_reference',
+      startWith: "$_id",
+      connectFromField: '_id',
+      connectToField: 'reports_to',
+      as: 'all_reports'
+    }
+  }
+]).pretty()
+
+
+db.parent_reference.aggregate([
+  {
+    $match: {
+      name: "Shannon"
+    }
+  }, {
+    $graphLookup: {
+      from: 'parent_reference',
+      startWith: "$reports_to",
+      connectFromField: 'reports_to',
+      connectToField: '_id',
+      as: 'evil_bosses'
+    }
+  }
+]).pretty()
+
+
+db.child_reference.find({name: "Dev"}).pretty()
+
+db.child_reference.aggregate([
+  {
+    $match: {
+      name: "Dev"
+    }
+  }, {
+    $graphLookup: {
+      from: 'child_reference',
+      startWith: "$direct_reports",
+      connectFromField: 'direct_reports',
+      connectToField: 'name',
+      as: 'all_reports'
+    }
+  }
+]).pretty()
+
+
+db.child_reference.aggregate([
+  {
+    $match: {
+      name: "Dev"
+    }
+  }, {
+    $graphLookup: {
+      from: 'child_reference',
+      startWith: "$direct_reports",
+      connectFromField: 'direct_reports',
+      connectToField: 'name',
+      as: 'till_2_level_reports',
+      maxDepth: 1,
+      depthField: 'level'
+    }
+  }
+]).pretty()
+
+
+db.air_airlines.aggregate([
+  {
+    $match: {name: "TAP Portugal"}
+  }, {
+    $graphLookup: {
+      startWith: "$base",
+      from: 'air_routes',
+      connectFromField: 'dst_airport',
+      connectToField: 'src_airport',
+      as: 'chain',
+      maxDepth: 1,
+      restrictSearchWithMatch: { "airline.name": "TAP Portugal"}
+    }
+  }
+]).pretty()
+
+db.air_airlines.aggregate([
+  {
+    $match: {name: "TAP Portugal"}
+  }
+]).pretty()
+
+
+
+
+
+
+
+db.air_airlines.aggregate([
+  {
+    $match: {
+      country: { $in: [ "Spain", "Germany", "Canada"]}
+    }
+  },
+  {
+    $lookup: {
+      localField: "name",
+      from: "air_alliances",
+      foreignField: "airlines",
+      as: "alliance"
+    }
+  }, {
+    $match: {
+      "alliance.name": "OneWorld"
+    }
+  }, {
+    $graphLookup: {
+      startWith: "$base",
+      from: "air_routes",
+      connectFromField: "dst_airport",
+      connectToField: "src_airport",
+      as: "connections",
+      maxDepth: 1
+    }
+  }, {
+    $project: {
+      "connections.dst_airport": 1
+    }
+  }, {
+    $unwind: "$connections"
+  }, {
+    $group: {
+      _id: "$connections.dst_airport"
+    }
+  }
+]).pretty()
+
+
+
+
+
+// Złe aha, jasne 
+db.air_alliances.aggregate([
+  {
+    $match: {
+      name: "OneWorld"
+    }
+  }, {
+    $graphLookup: {
+      startWith: "$airlines",
+      from: "air_airlines",
+      connectFromField: "name",
+      connectToField: "name",
+      as: "airlines",
+      maxDepth: 0,
+      restrictSearchWithMatch: {
+        country: {
+          $in: [ "Germany", "Spain", "Canada"]
+        }
+      }
+    }
+  }
+]).pretty()
+
+
+db.air_routes.aggregate([
+  {
+    $lookup: {
+      localField: "airline.name",
+      from: "air_alliances",
+      foreignField: "airlines",
+      as: "alliance"
+    }
+  }, {
+    $match: {
+      "alliance.name": "OneWorld"
+    }
+  }, {
+    $lookup: {
+      localField: "airline.name",
+      from: "air_airlines",
+      foreignField: "name",
+      as: "airline"
+    }
+  }, {
+    $graphLookup: {
+      startWith: "$airline.base",
+      from: "air_routes",
+      connectFromField: "dst_airport",
+      connectToField: "src_airport",
+      as: "connections",
+      maxDepth: 1,
+    }
+  }, {
+    $project: {
+      "connections.dst_airport": 1
+    }
+  }, {
+    $unwind: "$connections"
+  }, {
+    $group: {
+      _id: "$connections.dst_airport"
+    }
+  }
+]).pretty()
+
+
+// z neta
+db.air_routes.aggregate([
+  {
+    "$lookup": {
+      "from": "air_alliances",
+      "foreignField": "airlines",
+      "localField": "airline.name",
+      "as": "alliance"
+    }
+  },
+  {
+    "$match": {
+      "alliance.name": "OneWorld"
+    }
+  },
+  {
+    "$lookup": {
+      "from": "air_airlines",
+      "foreignField": "name",
+      "localField": "airline.name",
+      "as": "airline"
+    }
+  },
+  {
+    "$graphLookup": {
+      "startWith": "$airline.base",
+      "from": "air_routes",
+      "connectFromField": "dst_airport",
+      "connectToField": "src_airport",
+      "as": "connections",
+      "maxDepth": 1
+    }
+  },
+  {
+    "$project": {
+      "connections.dst_airport": 1
+    }
+  },
+  {
+    "$unwind": "$connections"
+  },
+  {
+    "$group": {
+      "_id": "$connections.dst_airport"
+    }
+  }
+])
+
+db.air_alliances.aggregate([
+  {
+    $match: { name: "OneWorld" }
+  }, {
+    $graphLookup: {
+      startWith: "$airlines",
+      from: "air_airlines",
+      connectFromField: "name",
+      connectToField: "name",
+      as: "airlines",
+      maxDepth: 0,
+      restrictSearchWithMatch: {
+        country: { $in: ["Germany", "Spain", "Canada"] }
+      }
+    }
+  }, {
+    $graphLookup: {
+      startWith: "$airlines.base",
+      from: "air_routes",
+      connectFromField: "dst_airport",
+      connectToField: "src_airport",
+      as: "connections",
+      maxDepth: 1
+    }
+  }, {
+    $project: {
+      validAirlines: "$airlines.name",
+      "connections.dst_airport": 1,
+      "connections.airline.name": 1
+    }
+  }, { 
+    $unwind: "$connections" 
+  }, {
+    $project: {
+      isValid: { $in: ["$connections.airline.name", "$validAirlines"] },
+      "connections.dst_airport": 1
+    }
+  }, {
+    $match: { isValid: true } 
+  }, { 
+    $group: { _id: "$connections.dst_airport" } 
+  }, {
+    $count: "ile"
+  }
+])
+
+
+
+
+For this lab the correct answer would be
+
+db.air_alliances.aggregate([
+  {
+    $match: { name: "OneWorld" }
+  },
+  {
+    $graphLookup: {
+      startWith: "$airlines",
+      from: "air_airlines",
+      connectFromField: "name",
+      connectToField: "name",
+      as: "airlines",
+      maxDepth: 0,
+      restrictSearchWithMatch: {
+        country: { $in: ["Germany", "Spain", "Canada"] }
+      }
+    }
+  },
+  {
+    $graphLookup: {
+      startWith: "$airlines.base",
+      from: "air_routes",
+      connectFromField: "dst_airport",
+      connectToField: "src_airport",
+      as: "connections",
+      maxDepth: 1
+    }
+  },
+  {
+    $project: {
+      validAirlines: "$airlines.name",
+      "connections.dst_airport": 1,
+      "connections.airline.name": 1
+    }
+  },
+  { $unwind: "$connections" },
+  {
+    $project: {
+      isValid: {
+        $in: ["$connections.airline.name", "$validAirlines"]
+      },
+      "connections.dst_airport": 1
+    }
+  },
+  { $match: { isValid: true } },
+  {
+    $group: {
+      _id: "$connections.dst_airport"
+    }
+  }
+])
+ COPY
+This pipeline takes the most selective collection first, air_alliances, matching the document refering to the OneWorld alliance.
+
+db.air_alliances.aggregate([
+{
+  $match: { name: "OneWorld" }
+}
+ COPY
+It then iterates, with maxDepth 0 on the air_airlines collection to collect the details on the airlines, specially their base airport, but restricting that $lookup to airlines of the requested countries [Spain, Germany, Canada], using restrictSearchWithMatch.
+
+{
+  $graphLookup: {
+    startWith: "$airlines",
+    from: "air_airlines",
+    connectFromField: "name",
+    connectToField: "name",
+    as: "airlines",
+    maxDepth: 0,
+    restrictSearchWithMatch: {
+      country: { $in: ["Germany", "Spain", "Canada"] }
+    }
+  }
+}
+ COPY
+We then iterate over all routes up to maximum of one layover by setting our maxDepth to 1. We find all possible destinations when departing from the base airport of each carrier by specify $airlines.base in startWith
+
+{
+  $graphLookup: {
+    startWith: "$airlines.base",
+    from: "air_routes",
+    connectFromField: "dst_airport",
+    connectToField: "src_airport",
+    as: "connections",
+    maxDepth: 1
+  }
+}
+ COPY
+We now have a document with a field named connections that is an array of all routes that are within 1 layover. We use a $project here to remove unnecessary information from the documents. We also need to include information about valid airlines that match our initial restriction and the name of the current airline.
+
+{
+  $project: {
+    validAirlines: "$airlines.name",
+    "connections.dst_airport": 1,
+    "connections.airline.name": 1
+  }
+}
+ COPY
+After this, we'll unwind our connections array, and then use $project to add a field representing whether this particular route is valid, meaning it is a route flown by one of our desired carriers.
+
+{ $unwind: "$connections" },
+{
+  $project: {
+    isValid: {
+      $in: ["$connections.airline.name", "$validAirlines"]
+    },
+    "connections.dst_airport": 1
+  }
+}
+ COPY
+Lastly, we use $match to filter out invalid routes, and then $group them on the destination.
+
+{ $match: { isValid: true } },
+{
+  $group: {
+    _id: "$connections.dst_airport"
+  }
+}
+ COPY
+An important aspect to this pipeline is that the first $graphLookup will act as a regular $lookup since we are setting a maxDepth to zero. The reason why we are taking this approach is due to the match restriction that $graphLookup allows, which can make this stage more efficient. Think back to the earlier lab on $lookup, can you think of a way to simplify the aggregation using $graphLookup instead?
+
+
+
+
+// Lab - $facets
+
+db.movies.aggregate([
+  {
+    $match: {
+      metacritic: { $type: "int"},
+      "imdb.rating": {$type: "double"}
+    }
+  },{
+    $project: {
+      _id: 0,
+      imdb: "$imdb.rating",
+      meta: "$metacritic",
+      title: 1
+    }
+  }, {
+    $facet: {
+      top_imdb: [
+        {
+          $sort: {
+            imdb: -1
+          }
+        }, {
+          $limit: 10
+        }, {
+          $project: {
+            title: 1
+          }
+        }
+      ],
+      top_meta: [
+        {
+          $sort: {
+            meta: -1
+          }
+        }, {
+          $limit: 10
+        }, {
+          $project: {
+            title: 1
+          }
+        }
+      ]
+    }
+  }, {
+    $project: {
+      best_intersection: {
+        $setIntersection: [ "$top_imdb", "$top_meta"]
+      }
+    }
+  }
+]).pretty()
+
+
+db.movies.aggregate([
+  {
+    $match: {
+      metacritic: { $type: "int"},
+      "imdb.rating": {$type: "double"}
+    }
+  },{
+    $project: {
+      _id: 0,
+      imdb: "$imdb.rating",
+      meta: "$metacritic",
+      title: 1
+    }
+  }, {
+    $sortByCount: "$meta"
+  }
+])
+
+
+
+// Views
+// this is the command we used to create the bronze_banking view in the database
+// identical commands were used to create the silver and gold views, the only
+// change was in the $match stage
+db.createView("bronze_banking", "customers", [
+  {
+    "$match": { "accountType": "bronze" }
+  },
+  {
+    "$project": {
+      "_id": 0,
+      "name": {
+        "$concat": [
+          { "$cond": [{ "$eq": ["$gender", "female"] }, "Miss", "Mr."] },
+          " ",
+          "$name.first",
+          " ",
+          "$name.last"
+        ]
+      },
+      "phone": 1,
+      "email": 1,
+      "address": 1,
+      "account_ending": { "$substr": ["$accountNumber", 7, -1] }
+    }
+  }
+])
+
+// getting all collections in a database and seeing their information
+db.getCollectionInfos()
+
+// getting information on views only
+db.system.views.find()
+
+
+
+db.movies.aggregate([
+  {
+    $match: {
+      title: /[l]a[b]$/i
+    }
+  }, {
+    $project: {
+      _id: 0,
+      title: 1
+    }
+  }
+])
+
+
+
+// an initial aggregatioin finding all movies where the title begins
+// with a vowel. Notice the $project stage that will prevent a covered
+// query!
+db.movies.aggregate([
+  {
+    $match: {
+      title: /^[aeiou]/i
+    }
+  },
+  {
+    $project: {
+      title_size: { $size: { $split: ["$title", " "] } }
+    }
+  },
+  {
+    $group: {
+      _id: "$title_size",
+      count: { $sum: 1 }
+    }
+  },
+  {
+    $sort: { count: -1 }
+  }
+])
+
+// showing the query isn't covered
+db.movies.aggregate(
+  [
+    {
+      $match: {
+        title: /^[aeiou]/i
+      }
+    },
+    {
+      $project: {
+        title_size: { $size: { $split: ["$title", " "] } }
+      }
+    },
+    {
+      $group: {
+        _id: "$title_size",
+        count: { $sum: 1 }
+      }
+    },
+    {
+      $sort: { count: -1 }
+    }
+  ],
+  { explain: true }
+)
+
+// this is better, we are projecting away the _id field. But this seems like
+// a lot of manual work...
+db.movies.aggregate([
+  {
+    $match: {
+      title: /^[aeiou]/i
+    }
+  },
+  {
+    $project: {
+      _id: 0,
+      title_size: { $size: { $split: ["$title", " "] } }
+    }
+  },
+  {
+    $group: {
+      _id: "$title_size",
+      count: { $sum: 1 }
+    }
+  },
+  {
+    $sort: { count: -1 }
+  }
+])
+
+// verifying that it is a covered query
+db.movies.aggregate(
+  [
+    {
+      $match: {
+        title: /^[aeiou]/i
+      }
+    },
+    {
+      $project: {
+        _id: 0,
+        title_size: { $size: { $split: ["$title", " "] } }
+      }
+    },
+    {
+      $group: {
+        _id: "$title_size",
+        count: { $sum: 1 }
+      }
+    },
+    {
+      $sort: { count: -1 }
+    }
+  ],
+  { explain: true }
+)
+
+// can we... do this? Yes, yes we can.
+db.movies.aggregate([
+  {
+    $match: {
+      title: /^[aeiou]/i
+    }
+  },
+  {
+    $group: {
+      _id: {
+        $size: { $split: ["$title", " "] }
+      },
+      count: { $sum: 1 }
+    }
+  },
+  {
+    $sort: { count: -1 }
+  }
+])
+
+// proof
+db.movies.aggregate(
+  [
+    {
+      $match: {
+        title: /^[aeiou]/i
+      }
+    },
+    {
+      $group: {
+        _id: {
+          $size: { $split: ["$title", " "] }
+        },
+        count: { $sum: 1 }
+      }
+    },
+    {
+      $sort: { count: -1 }
+    }
+  ],
+  { explain: true }
+)
+
+// and a very O way of expressing what we wanted all along
+db.movies.aggregate([
+  {
+    $match: {
+      title: /^[aeiou]/i
+    }
+  },
+  {
+    $sortByCount: {
+      $size: { $split: ["$title", " "] }
+    }
+  }
+])
+
+// a naive way to get teh number of trades by action. We unwind the trades
+// array first thing. We get the results we want, but maybe there is a better
+// way
+db.stocks.aggregate([
+  {
+    $unwind: "$trades"
+  },
+  {
+    $group: {
+      _id: {
+        time: "$id",
+        action: "$trades.action"
+      },
+      trades: { $sum: 1 }
+    }
+  },
+  {
+    $group: {
+      _id: "$_id.time",
+      actions: {
+        $push: {
+          type: "$_id.action",
+          count: "$trades"
+        }
+      },
+      total_trades: { $sum: "$trades" }
+    }
+  },
+  {
+    $sort: { total_trades: -1 }
+  }
+])
+
+// working within the arrays is always better if we want to do analysis within
+// a document. We get the same results in a slighlty easier to work with format
+// and didn't incur the cost of a $group stage
+db.stocks.aggregate([
+  {
+    $project: {
+      buy_actions: {
+        $size: {
+          $filter: {
+            input: "$trades",
+            cond: { $eq: ["$$this.action", "buy"] }
+          }
+        }
+      },
+      sell_actions: {
+        $size: {
+          $filter: {
+            input: "$trades",
+            cond: { $eq: ["$$this.action", "sell"] }
+          }
+        }
+      },
+      total_trades: { $size: "$trades" }
+    }
+  },
+  {
+    $sort: { total_trades: -1 }
+  }
+])
+
+// remember, expression composition is powerful. Be creative, and things
+// that can be done inline. Notice that there is no intermediary stage to
+// filter the trades array first, it's just done as part of the argument to
+// the reduce expression.
+
+db.stocks.aggregate([
+  {
+    $project: {
+      _id: 0,
+      mdb_only: {
+        $reduce: {
+          input: {
+            $filter: {
+              input: "$trades",
+              cond: { $eq: ["$$this.ticker", "MDB"] }
+            }
+          },
+          initialValue: {
+            buy: { total_count: 0, total_value: 0 },
+            sell: { total_count: 0, total_value: 0 }
+          },
+          in: {
+            $cond: [
+              { $eq: ["$$this.action", "buy"] },
+              {
+                buy: {
+                  total_count: { $add: ["$$value.buy.total_count", 1] },
+                  total_value: {
+                    $add: ["$$value.buy.total_value", "$$this.price"]
+                  }
+                },
+                sell: "$$value.sell"
+              },
+              {
+                sell: {
+                  total_count: { $add: ["$$value.sell.total_count", 1] },
+                  total_value: {
+                    $add: ["$$value.sell.total_value", "$$this.price"]
+                  }
+                },
+                buy: "$$value.buy"
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+])
+
+
+use('mongodbVSCodePlaygroundDB')
+db.people.drop()
+db.people.insertMany([
+  { "_id" : 0, "name" : "Bernice Pope", "age" : 69, "date" : ISODate("2017-10-04T18:35:44.011Z") },
+  { "_id" : 1, "name" : "Eric Malone", "age" : 57, "date" : ISODate("2017-10-04T18:35:44.014Z") },
+  { "_id" : 2, "name" : "Blanche Miller", "age" : 35, "date" : ISODate("2017-10-04T18:35:44.015Z") },
+  { "_id" : 3, "name" : "Sue Perez", "age" : 64, "date" : ISODate("2017-10-04T18:35:44.016Z") },
+  { "_id" : 4, "name" : "Ryan White", "age" : 39, "date" : ISODate("2017-10-04T18:35:44.019Z") },
+  { "_id" : 5, "name" : "Grace Payne", "age" : 56, "date" : ISODate("2017-10-04T18:35:44.020Z") },
+  { "_id" : 6, "name" : "Jessie Yates", "age" : 53, "date" : ISODate("2017-10-04T18:35:44.020Z") },
+  { "_id" : 7, "name" : "Herbert Mason", "age" : 37, "date" : ISODate("2017-10-04T18:35:44.020Z") },
+  { "_id" : 8, "name" : "Jesse Jordan", "age" : 47, "date" : ISODate("2017-10-04T18:35:44.020Z") },
+  { "_id" : 9, "name" : "Hulda Fuller", "age" : 25, "date" : ISODate("2017-10-04T18:35:44.020Z") },
+])
+
+var pipeline = [{
+    "$sort": { "date": 1 }
+  },
+  {
+    "$group": {
+      "_id": { "$size": { "$split": ["$name", " "]} },
+      "names": {"$push": "$name"}
+    }
+  },
+  {
+    "$project": {
+      "word": {
+        "$zip": {
+          "inputs": ["$names"],
+          "useLongestLength": false,
+        }
+      },
+      "names": 1
+    }
+  }]
+
+var pipeline = [{
+    "$project": {
+      "surname_capital": { "$substr": [{"$arrayElemAt": [ {"$split": [ "$name", " " ] }, 1]}, 0, 1 ] },
+      "name_size": {  "$add" : [{"$strLenCP": "$name"}, -1]},
+      "name": 1
+    }
+  },
+  {
+    "$group": {
+      "_id": "$name_size",
+      "word": { "$push": "$surname_capital" },
+      "names": {"$push": "$name"}
+    }
+  },
+  {
+    "$project": {
+      "word": {
+        "$reduce": {
+          "input": "$word",
+          "initialValue": "",
+          "in": { "$concat": ["$$value", "$$this"] }
+        }
+      },
+      "names": 1
+    }
+  },
+  {
+    "$sort": { "_id": 1}
+  }
+]
+
+var pipeline = [{
+    "$project": {
+      "surname": { "$arrayElemAt": [ {"$split": [ "$name", " " ] }, 1]},
+      "name_size": {  "$add" : [{"$strLenCP": "$name"}, -1]},
+      "name":1
+    }
+  },
+  {
+    "$group": {
+      "_id": "$name_size",
+      "word": { "$addToSet": {"$substr": [{"$toUpper":"$name"}, 3, 2]} },
+      "names": {"$push": "$surname"}
+    }
+  },
+  {
+    "$sort": {"_id": -1}
+  }
+]
+
+use('mongodbVSCodePlaygroundDB')
+db.people.aggregate(pipeline)
+db.people.find()
+
+
+
+
+db.air_routes.aggregate([
+  {
+    $match: {
+      src_airport: { $in: ["JFK", "LHR"]},
+      dst_airport: { $in: ["JFK", "LHR"]}
+    }
+  }, {
+    $project: {
+      _id: 0,
+      name: "$airline.name",
+      src_airport: 1,
+      dst_airport: 1
+    }
+  }, {
+    $lookup: {
+      localField: "name",
+      from: "air_alliances",
+      foreignField: "airlines",
+      as: "airline"
+    }
+  }, {
+    $project: {
+      name: "$airline.name",
+      src_airport: 1,
+      dst_airport: 1
+    }
+  }, {
+    $match: {
+      name: {$ne: []}
+    }
+  }, {
+    $project: {
+      name: { $arrayElemAt: [ "$name", 0 ] },
+      src_airport: 1,
+      dst_airport: 1
+    }
+  }, {
+    $sortByCount: "$name"
+  }
+]).pretty()
+
+
+
+
+
+
+db.air_routes.aggregate([
+  {
+    $match: {
+      src_airport: { $in: ["LHR", "JFK"] },
+      dst_airport: { $in: ["LHR", "JFK"] }
+    }
+  },
+  {
+    $lookup: {
+      from: "air_alliances",
+      foreignField: "airlines",
+      localField: "airline.name",
+      as: "alliance"
+    }
+  },
+  {
+    $match: { alliance: { $ne: [] } }
+  },
+  {
+    $addFields: {
+      alliance: { $arrayElemAt: ["$alliance.name", 0] }
+    }
+  },
+  {
+    $group: {
+      _id: "$airline.id",
+      alliance: { $first: "$alliance" }
+    }
+  },
+  {
+    $sortByCount: "$alliance"
   }
 ]).pretty()
 
