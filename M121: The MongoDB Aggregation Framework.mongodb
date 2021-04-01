@@ -1285,7 +1285,7 @@ db.system.views.find()
 db.movies.aggregate([
   {
     $match: {
-      title: /[l]a[b]$/i
+      title: /moon$/i
     }
   }, {
     $project: {
