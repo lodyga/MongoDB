@@ -6,8 +6,10 @@
   "spot": "<string>",
   "on_display": "<bool>",
   "in_house": "<bool>",
-  "events": [{
-    "k": "<string>",
-    "v": "<date>"
-  }]
+  "events": [
+    {
+      "k": "<string>",
+      "v": "<date>"
+    }
+  ]
 }
